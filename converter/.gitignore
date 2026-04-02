@@ -1,0 +1,6 @@
+/target
+pics
+Cargo.lock
+*.webm
+*.wav
+*.DAT
