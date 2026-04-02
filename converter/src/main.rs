@@ -100,7 +100,7 @@ fn parse_picture(img: DynamicImage) -> (VecDeque<Vec<u8>>, usize) {
     (enclines, framesize)
 }
 
-const USER_BYTES_PER_MODE2_SECTOR: usize = 2048;
+const USER_BYTES_PER_MODE2_SECTOR: usize = 2324;
 const NUMBER_OF_PCLS: usize = 125;
 
 struct Mode2Sector {

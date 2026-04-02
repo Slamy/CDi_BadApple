@@ -20,8 +20,8 @@ int audioPath;
 		printf("FAIL: c (%d)\n", errno); \
 	}
 
-#define VIDEO_PCL_COUNT 180
-#define SECTOR_SIZE 2048
+#define VIDEO_PCL_COUNT 160
+#define SECTOR_SIZE 2324
 
 int exit_app = 0;
 static PCB videoPcb;
@@ -44,9 +44,9 @@ void initPcb()
 		mvCil[i] = (PCL *)mvPcl;
 	}
 
-	videoPcb.PCB_Video = 0;
+	videoPcb.PCB_Video = mvCil;
 	videoPcb.PCB_Audio = NULL; /* Never transfer audio to memory */
-	videoPcb.PCB_Data = mvCil;
+	videoPcb.PCB_Data = NULL;
 	videoPcb.PCB_Sig = VIDEO_SIG_PCB;
 	videoPcb.PCB_Chan = 0x00000003;
 	videoPcb.PCB_AChan = 0x00000001;

@@ -16,8 +16,7 @@ define
 
 	green       file    MusicRtf    from record
 										real_time audio in channel 0 from "BUILD/LevelB.ACM">
-										data packed in channel 1 from "BUILD/MOVIE.DAT"
-
+										video in channel 1 from "BUILD/MOVIE.DAT"[rl3]
 {
 	"COPYRGHT.TXT"	owner 0.0 protection 0x111	from	Copyright
 	"ABSTRACT.TXT"	owner 0.0 protection 0x111	from	Abstract
