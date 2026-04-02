@@ -173,7 +173,7 @@ void initSystem()
 	initProgram();
 
 	/* Assume we are not running from serial stub first */
-	mpegFile = open("/cd/MUSIC.RTF", _READ);
+	mpegFile = open("/cd/240p.RTF", _READ);
 	DEBUG(mpegFile >= 0);
 	DEBUG(lseek(mpegFile, 0, 0));
 	DEBUG(ss_play(mpegFile, &videoPcb));

@@ -14,16 +14,21 @@ define
 
 	application file	MainApp     from "BUILD/BADAPPLE"
 
-	green       file    MusicRtf    from record
+	green       file    palRtf      from record
 										real_time audio in channel 0 from "BUILD/LevelB.ACM">
-										data packed in channel 1 from "BUILD/MOVIE.DAT"
+										data packed in channel 1 from "BUILD/MOV280.DAT"
+	green       file    ntscRtf     from record
+										real_time audio in channel 0 from "BUILD/LevelB.ACM">
+										data packed in channel 1 from "BUILD/MOV240.DAT"
+
 
 {
 	"COPYRGHT.TXT"	owner 0.0 protection 0x111	from	Copyright
 	"ABSTRACT.TXT"	owner 0.0 protection 0x111	from	Abstract
 	"BIBLIOGR.TXT"	owner 0.0 protection 0x111	from	Biblio
 	"BADAPPLE"      owner 0.0 protection 0x555	from	MainApp
-	"MUSIC.RTF"     owner 0.0 protection 0x111  from    MusicRtf
+	"240p.RTF"      owner 0.0 protection 0x111  from    ntscRtf
+	"280p.RTF"      owner 0.0 protection 0x111  from    palRtf
 
 }
 

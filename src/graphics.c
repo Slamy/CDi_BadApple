@@ -57,7 +57,7 @@ void VBlankOccured()
 	 * Display rate is 50 HZ. Video is 29.97 Hz.
 	 * 39282 ~= 2^16 * 29.97 / 50
 	 */
-	phase_accu += 39282;
+	phase_accu += 0x8000;
 
 	if (!nextframe_valid && phase_accu >= 0x10000)
 	{

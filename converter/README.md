@@ -15,7 +15,14 @@ You need to have a [Rust compiler](https://rust-lang.org/) for this.
     mkdir -p pics
     ffmpeg -i *.webm -s 384x280 pics/%05d.png
     cargo run --release
-    cp MOVIE.DAT ../build/MOVIE.DAT
+    cp MOVIE.DAT ../build/MOV280.DAT
+
+For NTSC resolution
+
+    ffmpeg -i *.webm -s 384x240 pics/%05d.png
+    cargo run --release
+    cp MOVIE.DAT ../build/MOV240.DAT
+    
 
 For debugging purposes, the frame count can be added to the video
 
