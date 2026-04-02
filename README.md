@@ -22,7 +22,7 @@ Please refer to the [converter README](converter/) for further instructions.
 
 ## Compatibility
 
-This demo was tested against these platforms
+This demo was tested on these platforms
 
 * [CD-i Emulator (cdiemu)](https://www.cdiemu.org/)
 * MAME (cdimono1)
@@ -32,12 +32,10 @@ This demo was tested against these platforms
 
 This demo can be improved
 
-* Test against real hardware
+* Test on real hardware
+    * Test with dirty CDs
 * Improve Video buffer verifier of the encoder. Buffer fifo level assumption doesn't match the actual playback.
 * Add additional video with NTSC pixel aspect ratio. The disc is pretty empty, after all.
-* Improve CPU load when handling LCT. Takes 40% of CPU power.
-* Fix RTF generation to allow full MODE2 sectors of 2324. Currently limited to data sectors of 2048.
-* RL3 for higher horizontal resolution. Should be possible.
 * Interlacing for more vertical resolution? Data rate might be a problem.
 * Add some shades of gray when shadows are seen
 
