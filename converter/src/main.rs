@@ -1,3 +1,5 @@
+#![feature(iter_array_chunks)]
+
 use std::{collections::VecDeque, fs::File, io::Write};
 
 use image::{DynamicImage, ImageReader};
@@ -12,9 +14,13 @@ fn line_to_rle(line: &[u8]) -> Vec<Rle> {
     let mut rle: Option<Rle> = None;
     let mut out = Vec::<Rle>::new();
 
-    for pixel in line {
-        let pixel = if *pixel > 128 { 1 } else { 0 };
+    let clut4conv = line
+        .iter()
+        .map(|p| if *p > 128 { 1 } else { 0 })
+        .array_chunks()
+        .map(|f: [u8; 2]| (f[0] << 4) | f[1]);
 
+    for pixel in clut4conv {
         if let Some(somerle) = rle.as_mut() {
             if somerle.index == pixel {
                 somerle.cnt += 1;
@@ -37,9 +43,8 @@ fn line_to_rle(line: &[u8]) -> Vec<Rle> {
     out
 }
 
-fn encode_append_clut7rle(line: &[Rle], out: &mut Vec<u8>) {
+fn encode_append_clut4rle(line: &[Rle], out: &mut Vec<u8>) {
     // Apply some limits.
-
     // A single CLUT7 entry can be repeated for 2-255 pixels.
     // There is one exception, 0 is reserved for "to end of line"
     for (index, entry) in line.iter().enumerate() {
@@ -74,7 +79,7 @@ fn encode_append_clut7rle(line: &[Rle], out: &mut Vec<u8>) {
 fn parse_picture(img: DynamicImage) -> (VecDeque<Vec<u8>>, usize) {
     let img = img.into_luma8();
 
-    assert!(img.width() == 384);
+    assert!(img.width() == 768);
     let mut enclines = VecDeque::new();
 
     let lines = img.chunks(img.width() as usize);
@@ -87,9 +92,9 @@ fn parse_picture(img: DynamicImage) -> (VecDeque<Vec<u8>>, usize) {
         let raw_rle = line_to_rle(line);
 
         let x: u32 = raw_rle.iter().map(|f| f.cnt).sum();
-        assert!(x == img.width());
+        assert!(x == img.width() / 2);
 
-        encode_append_clut7rle(&raw_rle, &mut enclineout);
+        encode_append_clut4rle(&raw_rle, &mut enclineout);
         framesize += enclineout.len();
         enclines.push_back(enclineout);
 

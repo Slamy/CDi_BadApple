@@ -49,7 +49,7 @@ void setupPlaneA()
 
 	dc_flnk(videoPath, fctA, lctA[0], 0);
 
-	fctBuffer[i++] = cp_icm(ICM_CLUT7, ICM_OFF, NM_1, EV_ON, CS_A); /* Use CLUT7 for plane A and B, 1 Matte, External Video On */
+	fctBuffer[i++] = cp_icm(ICM_CLUT4, ICM_OFF, NM_1, EV_ON, CS_A); /* Use CLUT7 for plane A and B, 1 Matte, External Video On */
 	fctBuffer[i++] = cp_tci(MIX_OFF, TR_OFF, TR_OFF);				/* Transparancy Color Key for Plane A and B */
 	fctBuffer[i++] = cp_po(PR_AB);									/* Plane A in front of B */
 	fctBuffer[i++] = cp_bkcol(BK_BLACK, BK_LOW);					/* Backdrop Low Intensity Black */
@@ -93,7 +93,7 @@ void setupPlaneB()
 	fctBuffer[i++] = cp_phld(PB, PH_OFF, 1);   /* Set Mosaic (pixel_hold) off, size = 1 */
 	fctBuffer[i++] = cp_icf(PB, ICF_MAX);	   /* Min Image Contributing Factor */
 	fctBuffer[i++] = cp_nop();
-	fctBuffer[i++] = cp_dprm(RMS_NORMAL, PRF_X2, BP_NORMAL); /* Reload Display Parameters */
+	fctBuffer[i++] = cp_dprm(RMS_NORMAL, PRF_X2, BP_DOUBLE); /* Reload Display Parameters */
 
 	fctBuffer[i++] = cp_cbnk(0);
 	fctBuffer[i++] = cl_black(0);
