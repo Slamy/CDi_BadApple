@@ -15,6 +15,31 @@ u_int fctBuffer[FCT_SIZE];
 u_int lineSkip;
 u_int pixelStart;
 
+u_int *lct_a_hwbuf[2];
+
+/*
+ * The Interactive Engineer
+ * Volume 5, Number 5, July/August 1996
+ * Direct Line Control Table access
+ * by Luc Rooijakkers, SPC Vision
+ */
+u_int *lctAddress(plane, lctid)
+int plane;
+int lctid;
+{
+	int lctDummy, lnkInstr;
+	/* create a dummy LCT in the same plane */
+	lctDummy = dc_crlct(videoPath, plane, 2, 0);
+	/* link this dummy LCT to line 1 of our parameter LCT */
+	dc_llnk(videoPath, lctDummy, 1, lctid, 1);
+	/* read the link instruction written by dc_llnk */
+	lnkInstr = dc_rdli(videoPath, lctDummy, 1, 7);
+	/* delete the dummy LCT */
+	dc_dllct(videoPath, lctDummy);
+	/* the address is in the lower 24 bits of the link instr */
+	return (u_int *)(lnkInstr & 0x00ffffff);
+}
+
 int initFCT(plane, size)
 int plane;
 int size;
@@ -46,6 +71,8 @@ void setupPlaneA()
 	fctA = initFCT(PA, FCT_SIZE);
 	lctA[0] = initLCT(PA, LCT_SIZE);
 	lctA[1] = initLCT(PA, LCT_SIZE);
+	lct_a_hwbuf[0] = lctAddress(PA, lctA[0]);
+	lct_a_hwbuf[1] = lctAddress(PA, lctA[1]);
 
 	dc_flnk(videoPath, fctA, lctA[0], 0);
 

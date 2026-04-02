@@ -17,6 +17,7 @@ extern u_int fctBuffer[FCT_SIZE];
 extern u_int pixelStart;
 extern u_int lineSkip;
 extern int lctA[2];
+extern u_int *lct_a_hwbuf[2];
 
 #define SIG_BLANK 0x0100
 

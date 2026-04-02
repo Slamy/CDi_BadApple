@@ -35,8 +35,8 @@ void setPixel(unsigned char *fb, int x, int y, int color)
 	fb[PIXEL_CORD(x, y)] = color;
 }
 
-nextframe_offset to_delete[8];
-short to_delete_index = 0;
+nextframe_offset to_delete[2][8];
+short to_delete_index[2] = 0;
 
 short CountUsedPCLs();
 
@@ -78,12 +78,24 @@ void VBlankOccured()
 			exit(1);
 		}
 
-		/* TODO These few lines require 40% of CPU load */
-		dc_nop(videoPath, lctA[currentLctA], 0, 0, LCT_SIZE, 1);
-		for (i = 0; i < nextframe_index; i++)
+		/* Uses ~2% of CPU load. First line cannot be set via lct_a_hwbuf[]. Must be set via dc_wrli() */
+		dc_wrli(videoPath, lctA[currentLctA], nextframe_offsets[0].line, 0, cp_dadr((int)nextframe_offsets[0].adr));
+
+		/* Remove video address jumps from the last frame */
+		for (i = 0; i < to_delete_index[currentLctA]; i++)
 		{
-			dc_wrli(videoPath, lctA[currentLctA], nextframe_offsets[i].line * 2, 0, cp_dadr((int)nextframe_offsets[i].adr));
+			lct_a_hwbuf[currentLctA][to_delete[currentLctA][i].line * 16] = cp_nop();
 		}
+
+		to_delete_index[currentLctA] = 0;
+		for (i = 1; i < nextframe_index; i++)
+		{
+			to_delete[currentLctA][to_delete_index[currentLctA]].line = nextframe_offsets[i].line;
+			to_delete_index[currentLctA]++;
+			lct_a_hwbuf[currentLctA][nextframe_offsets[i].line * 16] = cp_dadr((int)nextframe_offsets[i].adr);
+		}
+
+		/* Uses ~2% of CPU load. Switches LCTs for next frame */
 		dc_flnk(videoPath, fctA, lctA[currentLctA], 0);
 
 		currentLctA = (currentLctA + 1) & 1;
