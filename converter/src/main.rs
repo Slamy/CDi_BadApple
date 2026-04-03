@@ -1,6 +1,6 @@
 #![feature(iter_array_chunks)]
 
-use std::{collections::VecDeque, fs::File, io::Write};
+use std::{collections::VecDeque, env, fs::File, io::Write};
 
 use image::{DynamicImage, ImageReader};
 
@@ -123,7 +123,7 @@ fn parse_picture(img: DynamicImage, colormapper: ColorMapperFn) -> (VecDeque<Vec
 }
 
 const USER_BYTES_PER_MODE2_SECTOR: usize = 2324;
-const NUMBER_OF_PCLS: usize = 145;
+const NUMBER_OF_PCLS: usize = 125;
 
 struct Mode2Sector {
     buffer: Vec<u8>,
@@ -212,8 +212,10 @@ fn main2() {
     }
 }
 fn main() {
-    println!("Hello, world!");
+    let args: Vec<String> = env::args().collect();
 
+    let folder = &args[1];
+    println!("Reading from {folder}");
     /*
     let i = 239;
     let path = format!("pics/{i:05}.png");
@@ -232,23 +234,30 @@ fn main() {
     let mut cdi_buffer_level = 0;
     let max_cdi_buffer_level = NUMBER_OF_PCLS * USER_BYTES_PER_MODE2_SECTOR;
 
+    let pal_mode = folder.contains("280");
+    assert!(pal_mode || folder.contains("240"));
+
+    let max_frames_in_buffer = if pal_mode { 80 } else { 60 };
+
     // Preload by half a second before playback
     let mut frametime: f32 = 0_f32;
     //let mut sectortime: f32 = 0_f32;
 
-    let mut outfile = File::create("MOVIE.DAT").unwrap();
+    let mut outpath = if pal_mode { "MOV280.DAT" } else { "MOV240.DAT" };
+
+    let mut outfile = File::create(outpath).unwrap();
     let mut mode2sec = Mode2Sector::new();
 
     let mut frame_sizes_in_buffer = VecDeque::new();
 
     for i in 1..6955 {
         //for i in 1..10 {
-        let path = format!("pics/{i:05}.png");
+        let path = format!("{folder}/{i:05}.png");
         //println!("{}", path);
         let img = ImageReader::open(path).unwrap().decode().unwrap();
 
-        let colormapper = match i {
-            1500..1910 => map2shades,
+        let colormapper = match (pal_mode, i) {
+            (true, 1500..1910) => map2shades,
             _ => map3shades,
         };
         let (mut rle, framesize) = parse_picture(img, colormapper);
@@ -328,7 +337,7 @@ fn main() {
         }
 
         //while cdi_buffer_level > max_cdi_buffer_level || frame_sizes_in_buffer.len() > 80 {
-        while frame_sizes_in_buffer.len() > 80 {
+        while frame_sizes_in_buffer.len() > max_frames_in_buffer {
             // Add an empty sector
             mode2sec.push_data(i, 0, &[], true);
             mode2sec.flush(&mut outfile);

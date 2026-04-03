@@ -12,10 +12,16 @@ The [remastered upload of Masayoshi Minoshima / ALSTROEMERIA RECORDS](https://ww
 
 You need to have a [Rust compiler](https://rust-lang.org/) for this.
 
-    mkdir -p pics
-    ffmpeg -i *.webm -s 768x280 pics/%05d.png
-    cargo run --release
-    cp MOVIE.DAT ../build/MOVIE.DAT
+    mkdir -p pics280 pics240
+    ffmpeg -i *.webm -s 768x280 pics280/%05d.png
+    cargo run --release pics280
+    mv MOV280.DAT ../build/MOV280.DAT
+
+For NTSC resolution
+
+    ffmpeg -i *.webm -s 768x240 pics240/%05d.png
+    cargo run --release pics240
+    mv MOV240.DAT ../build/MOV240.DAT
 
 For debugging purposes, the frame count can be added to the video
 

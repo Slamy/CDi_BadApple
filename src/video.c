@@ -8,7 +8,7 @@
 
 int videoPath;
 int fctA, fctB, lctB;
-
+int videoMode;
 int lctA[2];
 
 u_int fctBuffer[FCT_SIZE];
@@ -141,7 +141,6 @@ void initVideo()
 {
 	char *devName = csd_devname(DT_VIDEO, 1); /* Get Video Device Name */
 	char *devParam;
-	int videoMode;
 
 	videoPath = open(devName, UPDAT_); /* Open Video Device */
 	devParam = csd_devparam(devName);

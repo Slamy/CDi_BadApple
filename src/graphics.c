@@ -46,6 +46,8 @@ extern unsigned short max_full_cnt;
 
 void VBlankOccured()
 {
+	static short printcnt = 0;
+
 	/* Delay start by 2 frames to sync with audio */
 	static long phase_accu = -0x10000 * 2;
 
@@ -56,8 +58,12 @@ void VBlankOccured()
 	 * Perform frame rate conversion
 	 * Display rate is 50 HZ. Video is 29.97 Hz.
 	 * 39282 ~= 2^16 * 29.97 / 50
+	 * 32735 ~= 2^16 * 29.97 / 60
 	 */
-	phase_accu += 39282;
+	if (videoMode == 0)
+		phase_accu += 39282; /* 29.97 Hz -> 50 Hz */
+	else
+		phase_accu += 32735; /* 29.97 Hz -> 60 Hz */
 
 	if (!nextframe_valid && phase_accu >= 0x10000)
 	{
@@ -102,6 +108,12 @@ void VBlankOccured()
 
 		nextframe_index = 0;
 		nextframe_valid = 0;
+		printcnt++;
+		if ((printcnt & 0x3) == 0)
+		{
+			printf("%d %d %d\n", current_seqnum, CountUsedPCLs(), unused_header);
+			unused_header = 0;
+		}
 	}
 }
 

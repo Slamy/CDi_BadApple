@@ -167,17 +167,24 @@ void initAudio()
 
 void initSystem()
 {
+	char *path;
+
 	initAudio();
 	initVideo();
 	initGraphics();
 	initProgram();
 
 	/* Assume we are not running from serial stub first */
-	mpegFile = open("/cd/MUSIC.RTF", _READ);
+	if (videoMode == 0)
+		path = "/cd/280p.RTF"; /* PAL - 384x280 */
+	else
+		path = "/cd/240p.RTF"; /* NTSC TV - 384x240 */
+
+	mpegFile = open(path, _READ);
 	DEBUG(mpegFile >= 0);
 	DEBUG(lseek(mpegFile, 0, 0));
 	DEBUG(ss_play(mpegFile, &videoPcb));
-	printf("Started Play %d\n", mpegFile);
+	printf("Started Play %s\n", path);
 }
 
 void closeSystem()
