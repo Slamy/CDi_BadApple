@@ -123,7 +123,6 @@ fn parse_picture(img: DynamicImage, colormapper: ColorMapperFn) -> (VecDeque<Vec
 }
 
 const USER_BYTES_PER_MODE2_SECTOR: usize = 2324;
-const NUMBER_OF_PCLS: usize = 125;
 
 struct Mode2Sector {
     buffer: Vec<u8>,
@@ -151,7 +150,7 @@ impl Mode2Sector {
 
     fn push_data(&mut self, seqnum: u16, offset: u16, data: &[u8], last: bool) {
         assert!(data.len() & 1 == 0, "Data not word aligned");
-        assert!(self.has_end_mark == false, "Sector already closed");
+        assert!(!self.has_end_mark, "Sector already closed");
 
         let afterremain =
             USER_BYTES_PER_MODE2_SECTOR - self.buffer.len() - Self::HEADER_SIZE - data.len();
@@ -164,13 +163,6 @@ impl Mode2Sector {
 
         let magic: u16 = if last { 0x4242 } else { 0x4243 };
         let length = data.len() as u16;
-
-        /*
-        println!(
-            "Header seq:{} offset:{} len:{} {}",
-            seqnum, offset, length, last
-        );
-        */
 
         self.buffer.extend_from_slice(&magic.to_be_bytes());
         self.buffer.extend_from_slice(&seqnum.to_be_bytes());
@@ -194,35 +186,11 @@ impl Mode2Sector {
     }
 }
 
-fn main2() {
-    let mut phase_accu = 0;
-    let mut last_phase_accu = 0;
-
-    for i in 1..800 {
-        phase_accu += 39282;
-        if phase_accu >= 0x10000 {
-            phase_accu -= 0x10000;
-
-            println!("X");
-        } else {
-            println!("-");
-        }
-
-        last_phase_accu = phase_accu;
-    }
-}
 fn main() {
     let args: Vec<String> = env::args().collect();
 
     let folder = &args[1];
     println!("Reading from {folder}");
-    /*
-    let i = 239;
-    let path = format!("pics/{i:05}.png");
-    let img = ImageReader::open(path).unwrap().decode().unwrap();
-    let rle = parse_picture(img);
-    std::fs::write("foo.bin", rle).unwrap();
-    */
 
     // Assume 75%, since Level B audio is interleaved with video data
     let sectors_per_second: f32 = 75_f32 * 3_f32 / 4_f32;
@@ -231,19 +199,20 @@ fn main() {
     let frames_per_second = 29.97_f32;
     let seconds_per_frame: f32 = 1_f32 / frames_per_second;
 
-    let mut cdi_buffer_level = 0;
-    let max_cdi_buffer_level = NUMBER_OF_PCLS * USER_BYTES_PER_MODE2_SECTOR;
-
     let pal_mode = folder.contains("280");
     assert!(pal_mode || folder.contains("240"));
 
-    let max_frames_in_buffer = if pal_mode { 80 } else { 60 };
+    // PCL fullness during playback on CD-i
+    // 70 frames at 50 Hz -> 20 -> 133
+    // 50 frames at 60 Hz -> 21 -> 100
+    // 55 frames at 60 Hz -> 24 -> 104
+    // 75 frames at 50 Hz -> 21 -> 134
+    let max_frames_in_buffer = if pal_mode { 75 } else { 55 };
 
     // Preload by half a second before playback
     let mut frametime: f32 = 0_f32;
-    //let mut sectortime: f32 = 0_f32;
 
-    let mut outpath = if pal_mode { "MOV280.DAT" } else { "MOV240.DAT" };
+    let outpath = if pal_mode { "MOV280.DAT" } else { "MOV240.DAT" };
 
     let mut outfile = File::create(outpath).unwrap();
     let mut mode2sec = Mode2Sector::new();
@@ -251,9 +220,7 @@ fn main() {
     let mut frame_sizes_in_buffer = VecDeque::new();
 
     for i in 1..6955 {
-        //for i in 1..10 {
         let path = format!("{folder}/{i:05}.png");
-        //println!("{}", path);
         let img = ImageReader::open(path).unwrap().decode().unwrap();
 
         let colormapper = match (pal_mode, i) {
@@ -274,18 +241,10 @@ fn main() {
             } else {
                 let mut to_write: Vec<u8> = Vec::new();
 
-                /*println!(
-                    "X {} {} {} {}",
-                    rle.is_empty(),
-                    to_write.len(),
-                    rle.front().unwrap().len(),
-                    remain
-                );*/
-
                 // Push as many atomic RLE lines into the sector as possible
                 while !rle.is_empty() && to_write.len() + rle.front().unwrap().len() < remain {
                     lines += 1;
-                    to_write.extend_from_slice(&mut rle.pop_front().unwrap());
+                    to_write.extend_from_slice(&rle.pop_front().unwrap());
                 }
 
                 // Pad to full word, so the next header is again word aligned
@@ -297,30 +256,16 @@ fn main() {
                 // 1. rle is empty. No more lines to push. We don't need to flush
                 // 2. rle is not empty, but the next line is too big to fit
                 // into the remaining space. We must flush
-                /*
-                if rle.is_empty() {
-                    println!("E {} {}", to_write.len(), remain);
-                } else {
-                    println!(
-                        "F {} {} {}",
-                        rle.front().unwrap().len(),
-                        to_write.len(),
-                        remain
-                    );
-                }
-                 */
 
                 if !rle.is_empty() {
                     // The next line will not fit, close it and flush.
                     mode2sec.push_data(i, offset, &to_write, true);
-                    cdi_buffer_level += to_write.len();
                     offset = lines;
 
                     mode2sec.flush(&mut outfile);
                     frametime += seconds_per_sector;
                 } else {
                     mode2sec.push_data(i, offset, &to_write, false);
-                    cdi_buffer_level += to_write.len();
                     offset = lines;
                 }
             }
@@ -336,7 +281,7 @@ fn main() {
             frametime += seconds_per_sector;
         }
 
-        //while cdi_buffer_level > max_cdi_buffer_level || frame_sizes_in_buffer.len() > 80 {
+        //while cdi_buffer_level > max_cdi_buffer_level {
         while frame_sizes_in_buffer.len() > max_frames_in_buffer {
             // Add an empty sector
             mode2sec.push_data(i, 0, &[], true);
@@ -347,33 +292,16 @@ fn main() {
             // Consume frames for display
             while frametime > seconds_per_frame {
                 frametime -= seconds_per_frame;
-                cdi_buffer_level -= frame_sizes_in_buffer.pop_front().unwrap();
+                frame_sizes_in_buffer.pop_front().unwrap();
             }
         }
 
         // Consume frames for display
         while frametime > seconds_per_frame {
             frametime -= seconds_per_frame;
-            cdi_buffer_level -= frame_sizes_in_buffer.pop_front().unwrap();
+            frame_sizes_in_buffer.pop_front().unwrap();
         }
 
-        /*
-        if cdi_buffer_level >= max_cdi_buffer_level as f32 {
-            mode2sec.flush(&mut outfile);
-            cdi_buffer_level -= USER_BYTES_PER_MODE2_SECTOR as f32;
-        }
-        */
-
-        //println!("{} byte", );
-        println!(
-            "VBV {} {} {}",
-            i,
-            cdi_buffer_level,
-            frame_sizes_in_buffer.len()
-        );
-        //assert!(cdi_buffer_level > 0_f32);
-
-        //sum += rle.len() * 2;
+        println!("VBV {} {}", i, frame_sizes_in_buffer.len());
     }
-    //println!("{} byte", sum);
 }
