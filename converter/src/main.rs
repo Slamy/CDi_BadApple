@@ -10,13 +10,30 @@ struct Rle {
     cnt: u32,
 }
 
-fn line_to_rle(line: &[u8]) -> Vec<Rle> {
+type ColorMapperFn = fn(&u8) -> u8;
+
+// shadows in 03456 are luma 73
+fn map3shades(p: &u8) -> u8 {
+    if *p > 100 {
+        1
+    } else if *p > 60 {
+        2
+    } else {
+        0
+    }
+}
+
+fn map2shades(p: &u8) -> u8 {
+    if *p > 100 { 1 } else { 0 }
+}
+
+fn line_to_rle(line: &[u8], colormapper: ColorMapperFn) -> Vec<Rle> {
     let mut rle: Option<Rle> = None;
     let mut out = Vec::<Rle>::new();
 
     let clut4conv = line
         .iter()
-        .map(|p| if *p > 128 { 1 } else { 0 })
+        .map(colormapper)
         .array_chunks()
         .map(|f: [u8; 2]| (f[0] << 4) | f[1]);
 
@@ -76,7 +93,7 @@ fn encode_append_clut4rle(line: &[Rle], out: &mut Vec<u8>) {
     }
 }
 
-fn parse_picture(img: DynamicImage) -> (VecDeque<Vec<u8>>, usize) {
+fn parse_picture(img: DynamicImage, colormapper: ColorMapperFn) -> (VecDeque<Vec<u8>>, usize) {
     let img = img.into_luma8();
 
     assert!(img.width() == 768);
@@ -89,7 +106,7 @@ fn parse_picture(img: DynamicImage) -> (VecDeque<Vec<u8>>, usize) {
     for line in lines {
         let mut enclineout = Vec::<u8>::new();
 
-        let raw_rle = line_to_rle(line);
+        let raw_rle = line_to_rle(line, colormapper);
 
         let x: u32 = raw_rle.iter().map(|f| f.cnt).sum();
         assert!(x == img.width() / 2);
@@ -106,7 +123,7 @@ fn parse_picture(img: DynamicImage) -> (VecDeque<Vec<u8>>, usize) {
 }
 
 const USER_BYTES_PER_MODE2_SECTOR: usize = 2324;
-const NUMBER_OF_PCLS: usize = 125;
+const NUMBER_OF_PCLS: usize = 145;
 
 struct Mode2Sector {
     buffer: Vec<u8>,
@@ -147,6 +164,14 @@ impl Mode2Sector {
 
         let magic: u16 = if last { 0x4242 } else { 0x4243 };
         let length = data.len() as u16;
+
+        /*
+        println!(
+            "Header seq:{} offset:{} len:{} {}",
+            seqnum, offset, length, last
+        );
+        */
+
         self.buffer.extend_from_slice(&magic.to_be_bytes());
         self.buffer.extend_from_slice(&seqnum.to_be_bytes());
         self.buffer.extend_from_slice(&offset.to_be_bytes());
@@ -157,6 +182,7 @@ impl Mode2Sector {
     }
 
     fn flush(&mut self, file: &mut File) {
+        //println!("Flush");
         assert!(self.has_end_mark);
         // Ensure it is padded, before writing
         assert!(self.buffer.len() <= USER_BYTES_PER_MODE2_SECTOR);
@@ -221,32 +247,73 @@ fn main() {
         //println!("{}", path);
         let img = ImageReader::open(path).unwrap().decode().unwrap();
 
-        let (mut rle, framesize) = parse_picture(img);
+        let colormapper = match i {
+            1500..1910 => map2shades,
+            _ => map3shades,
+        };
+        let (mut rle, framesize) = parse_picture(img, colormapper);
 
         let mut offset = 0;
         let mut lines = 0;
         while !rle.is_empty() {
             let remain = mode2sec.remaining_storage();
 
+            // Flush the sector when no more data can be added to it
             if remain == 0 {
                 mode2sec.flush(&mut outfile);
                 frametime += seconds_per_sector;
             } else {
                 let mut to_write: Vec<u8> = Vec::new();
 
+                /*println!(
+                    "X {} {} {} {}",
+                    rle.is_empty(),
+                    to_write.len(),
+                    rle.front().unwrap().len(),
+                    remain
+                );*/
+
+                // Push as many atomic RLE lines into the sector as possible
                 while !rle.is_empty() && to_write.len() + rle.front().unwrap().len() < remain {
                     lines += 1;
                     to_write.extend_from_slice(&mut rle.pop_front().unwrap());
                 }
 
-                // Pad to full word
+                // Pad to full word, so the next header is again word aligned
                 if to_write.len() & 1 == 1 {
                     to_write.push(0);
                 }
 
-                mode2sec.push_data(i, offset, &to_write, false);
-                cdi_buffer_level += to_write.len();
-                offset = lines;
+                // There are 2 reasons why we are here. Either
+                // 1. rle is empty. No more lines to push. We don't need to flush
+                // 2. rle is not empty, but the next line is too big to fit
+                // into the remaining space. We must flush
+                /*
+                if rle.is_empty() {
+                    println!("E {} {}", to_write.len(), remain);
+                } else {
+                    println!(
+                        "F {} {} {}",
+                        rle.front().unwrap().len(),
+                        to_write.len(),
+                        remain
+                    );
+                }
+                 */
+
+                if !rle.is_empty() {
+                    // The next line will not fit, close it and flush.
+                    mode2sec.push_data(i, offset, &to_write, true);
+                    cdi_buffer_level += to_write.len();
+                    offset = lines;
+
+                    mode2sec.flush(&mut outfile);
+                    frametime += seconds_per_sector;
+                } else {
+                    mode2sec.push_data(i, offset, &to_write, false);
+                    cdi_buffer_level += to_write.len();
+                    offset = lines;
+                }
             }
         }
 
@@ -255,6 +322,8 @@ fn main() {
         let remain = mode2sec.remaining_storage();
         if remain == 0 {
             mode2sec.flush(&mut outfile);
+            println!("Fill2!");
+
             frametime += seconds_per_sector;
         }
 
@@ -264,7 +333,7 @@ fn main() {
             mode2sec.push_data(i, 0, &[], true);
             mode2sec.flush(&mut outfile);
             frametime += seconds_per_sector;
-            println!("Fill!");
+            println!("Fill1!");
 
             // Consume frames for display
             while frametime > seconds_per_frame {
