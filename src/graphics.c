@@ -40,7 +40,10 @@ short to_delete_index[2] = 0;
 
 short CountUsedPCLs();
 
-extern unsigned short current_seqnum;
+extern short current_seqnum;
+extern short cd_frametime;
+extern short phase_mod;
+
 extern unsigned short min_full_cnt;
 extern unsigned short max_full_cnt;
 
@@ -48,8 +51,8 @@ void VBlankOccured()
 {
 	static short printcnt = 0;
 
-	/* Delay start by 2 frames to sync with audio */
-	static long phase_accu = -0x10000 * 2;
+	/* Delay start by 4 frames to sync with audio */
+	static long phase_accu = -0x10000 * 4;
 
 	/* We start in an underflow */
 	static short already_told_underflow = 1;
@@ -65,10 +68,12 @@ void VBlankOccured()
 	else
 		phase_accu += 32735; /* 29.97 Hz -> 60 Hz */
 
+	phase_accu += phase_mod;
+
 	if (!nextframe_valid && phase_accu >= 0x10000)
 	{
 		if (!already_told_underflow)
-			printf("Display underflow\n");
+			printf("UF\n");
 		already_told_underflow = 1;
 	}
 
@@ -111,7 +116,7 @@ void VBlankOccured()
 		printcnt++;
 		if ((printcnt & 0x3) == 0)
 		{
-			printf("%d %d %d\n", current_seqnum, CountUsedPCLs(), unused_header);
+			/* printf("%d %d %d\n", current_seqnum, CountUsedPCLs(), phase_mod); */
 			unused_header = 0;
 		}
 	}

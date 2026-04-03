@@ -4,6 +4,7 @@
 #include <events.h>
 #include <stdio.h>
 #include <setsys.h>
+#include <math.h>
 #include <memory.h>
 #include <cdfm.h>
 
@@ -20,6 +21,9 @@ int audioPath;
 		printf("FAIL: c (%d)\n", errno); \
 	}
 
+/* 160 * 2324 = 4371840 byte
+ * Quite a size, considering just 512kB is available for Plane A
+ */
 #define VIDEO_PCL_COUNT 160
 #define SECTOR_SIZE 2324
 
@@ -70,9 +74,10 @@ int length;	  /* buffer size in number of sectors */
 	pcl->PCL_Cnt = 0;
 }
 
-unsigned short current_seqnum = 1;
+short current_seqnum = 1;
 unsigned short min_full_cnt = 0xffff;
 unsigned short max_full_cnt = 0;
+short phase_mod = 0;
 
 #define EXPECTED_NUMBER_OF_FRAMES 6955
 short CountUsedPCLs()
@@ -116,6 +121,16 @@ void initPcls()
 	}
 }
 
+/* Estimated by measuring the video signal and the audio signal
+ * using a sound card. The beat drop during the "apple catch invert"
+ * is perfect for this.
+ * = number of frames *100
+ */
+int kAudioVideoOffset = 120;
+
+int kSectorRate = 75;
+int kVideoFrameRate = 2997; /* *100 */
+
 int mainSignal(sigCode)
 int sigCode;
 {
@@ -132,6 +147,17 @@ int sigCode;
 	}
 	else if (sigCode == MV_SIG_PCL)
 	{
+		if (mpegFile != -1)
+		{
+			long error;
+			int pos = gs_pos(mpegFile) / 2048;
+			/* pos counts 75 Hz ticks */
+			pos = pos * kVideoFrameRate / kSectorRate + kAudioVideoOffset;
+			/* now we have the number of frames *100 */
+			error = -(current_seqnum * 100 - pos);
+
+			phase_mod = error;
+		}
 	}
 	else if (sigCode == SIG_BLANK)
 	{
@@ -318,14 +344,12 @@ void runProgram()
 		{
 			unsigned char *buf_current = &mpegDataBuffer[current_pcl * SECTOR_SIZE];
 
-#if 1
 			int sector_used_up = processSector(buf_current);
 			/* mvPcl[current_pcl].PCL_Buf */
 			/* printf("MV %x %x %x\n", videoPcb.PCB_Stat, videoPcb.PCB_Sig, buf_current[0]); */
 			/* printf("C %x\n", *(u_short *)buf_current); */
 
 			if (sector_used_up)
-#endif
 			{
 				CountUsedPCLs();
 

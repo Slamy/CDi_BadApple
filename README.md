@@ -30,14 +30,10 @@ This demo was tested on these platforms
 
 ## TODO
 
-This demo can be improved
-
-* Test on real hardware
-    * Test with dirty CDs
+* Fix underflows on real hardware
+* Test with dirty CDs on real hardware
 * Improve Video buffer verifier of the encoder. Buffer fifo level assumption doesn't match the actual playback.
-* Add additional video with NTSC pixel aspect ratio. The disc is pretty empty, after all.
 * Interlacing for more vertical resolution? Data rate might be a problem.
-* Add some shades of gray when shadows are seen
 
 ## References
 
