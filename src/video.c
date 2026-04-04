@@ -61,9 +61,8 @@ int size;
 #define cl_blue(i) cp_clut(i, 11, 94, 216)
 #define cl_red(i) cp_clut(i, 255, 32, 42)
 #define cl_green(i) cp_clut(i, 32, 255, 32)
-#define cl_dgray(i) cp_clut(i, 80, 80, 80)
-#define cl_lgray(i) cp_clut(i, 192, 203, 220)
 #define cl_black(i) cp_clut(i, 0, 0, 0)
+#define cl_gray(i,x) cp_clut(i, x, x, x)
 
 void setupPlaneA()
 {
@@ -89,16 +88,26 @@ void setupPlaneA()
 	fctBuffer[i++] = cp_dprm(RMS_RL, PRF_X2, BP_NORMAL); /* Reload Display Parameters */
 
 	fctBuffer[i++] = cp_cbnk(0);
-	fctBuffer[i++] = cl_black(0);
-	fctBuffer[i++] = cl_white(1);
-	fctBuffer[i++] = cl_dgray(2);
-	fctBuffer[i++] = cl_green(3);
+	
+	fctBuffer[i++] = cl_gray(0,0);
+	fctBuffer[i++] = cl_gray(1,36);
+	fctBuffer[i++] = cl_gray(2,73);
+	fctBuffer[i++] = cl_gray(3,109);
+	fctBuffer[i++] = cl_gray(4,146);
+	fctBuffer[i++] = cl_gray(5,182);
+	fctBuffer[i++] = cl_gray(6,219);
+	fctBuffer[i++] = cl_gray(7,255);
 
 	fctBuffer[i++] = cp_cbnk(3);
-	fctBuffer[i++] = cl_black(0);
-	fctBuffer[i++] = cl_white(1);
-	fctBuffer[i++] = cl_dgray(2);
-	fctBuffer[i++] = cl_green(3);
+
+	fctBuffer[i++] = cl_gray(0,0);
+	fctBuffer[i++] = cl_gray(1,36);
+	fctBuffer[i++] = cl_gray(2,73);
+	fctBuffer[i++] = cl_gray(3,109);
+	fctBuffer[i++] = cl_gray(4,146);
+	fctBuffer[i++] = cl_gray(5,182);
+	fctBuffer[i++] = cl_gray(6,219);
+	fctBuffer[i++] = cl_gray(7,255);
 
 	dc_wrfct(videoPath, fctA, 0, i, fctBuffer);
 }
@@ -125,13 +134,11 @@ void setupPlaneB()
 	fctBuffer[i++] = cp_cbnk(0);
 	fctBuffer[i++] = cl_black(0);
 	fctBuffer[i++] = cl_white(1);
-	fctBuffer[i++] = cl_dgray(2);
 	fctBuffer[i++] = cl_green(3);
 
 	fctBuffer[i++] = cp_cbnk(3);
 	fctBuffer[i++] = cl_black(0);
 	fctBuffer[i++] = cl_white(1);
-	fctBuffer[i++] = cl_dgray(2);
 	fctBuffer[i++] = cl_green(3);
 
 	dc_wrfct(videoPath, fctB, 0, i, fctBuffer);

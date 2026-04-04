@@ -35,7 +35,7 @@ void setPixel(unsigned char *fb, int x, int y, int color)
 	fb[PIXEL_CORD(x, y)] = color;
 }
 
-nextframe_offset to_delete[2][8];
+nextframe_offset to_delete[2][NEXTFRAME_ENTRIES];
 short to_delete_index[2] = 0;
 
 short CountUsedPCLs();
@@ -158,9 +158,4 @@ u_char color;
 			*dst++ = value;
 		dst += (SCREEN_WIDTH >> 2) - width;
 	}
-}
-
-void initGraphics()
-{
-	createVideoBuffers();
 }

@@ -79,7 +79,7 @@ unsigned short min_full_cnt = 0xffff;
 unsigned short max_full_cnt = 0;
 short phase_mod = 0;
 
-#define EXPECTED_NUMBER_OF_FRAMES 6955
+#define EXPECTED_NUMBER_OF_FRAMES 6530
 short CountUsedPCLs()
 {
 	unsigned short full_cnt = 0;
@@ -93,7 +93,7 @@ short CountUsedPCLs()
 	}
 
 	/* Ignore the first few frames for analysis of FIFO levels */
-	if (current_seqnum > 50 && current_seqnum < (EXPECTED_NUMBER_OF_FRAMES - 50))
+	if (current_seqnum > 50 && current_seqnum < (EXPECTED_NUMBER_OF_FRAMES - 20))
 	{
 		if (full_cnt < min_full_cnt)
 			min_full_cnt = full_cnt;
@@ -217,7 +217,8 @@ void closeSystem()
 	closeVideo();
 }
 
-nextframe_offset nextframe_offsets[8];
+#define NEXTFRAME_ENTRIES 16
+nextframe_offset nextframe_offsets[NEXTFRAME_ENTRIES];
 short nextframe_index = 0;
 short nextframe_valid = 0;
 short unused_header = 0;
@@ -227,6 +228,7 @@ int processSector(unsigned char *buf_current)
 	unsigned short *header;
 	unsigned short magic;
 	unsigned short seqnum;
+	unsigned short frame_complete;
 	unsigned short offset;
 	unsigned short length;
 	unsigned char *rle_data;
@@ -247,18 +249,16 @@ int processSector(unsigned char *buf_current)
 
 		header = buf_current;
 		magic = header[0];	/* Last package in sector 0x4242, Not the last one 0x4243 */
-		seqnum = header[1]; /* Frame Index, starting at 1*/
+		seqnum = header[1] & 0x7fff; /* Frame Index, starting at 1*/
+		frame_complete = header[1] & 0x8000;
 		offset = header[2]; /* Offset in lines */
 		length = header[3]; /* Number of bytes */
 		rle_data = &header[4];
 
 		if ((magic & 0xfffe) == 0x4242)
 		{
-			/* printf("Seq %d %x %d %d %d\n", current_pcl, magic, seqnum, offset, length); */
 			if (seqnum > current_seqnum)
 			{
-				/* A new frame has started. Commit the current one! */
-				nextframe_valid = 1;
 				current_seqnum = seqnum;
 				/* We aren't allowed to continue here, since we have lost our working buffer */
 				return 0;
@@ -280,7 +280,10 @@ int processSector(unsigned char *buf_current)
 						unused_header++;
 					}
 
-					if (nextframe_index >= 8)
+					if (frame_complete) nextframe_valid = 1;
+
+
+					if (nextframe_index >= NEXTFRAME_ENTRIES)
 					{
 						printf("Buffer overflow\n");
 						exit(1);
@@ -301,7 +304,9 @@ int processSector(unsigned char *buf_current)
 						unused_header++;
 					}
 
-					if (nextframe_index >= 8)
+					if (frame_complete) nextframe_valid = 1;
+
+					if (nextframe_index >= NEXTFRAME_ENTRIES)
 					{
 						printf("Buffer overflow\n");
 						exit(1);
@@ -385,7 +390,7 @@ char *argv[];
 	runProgram();
 	closeSystem();
 
-	sleep(1);
+	sleep(8);
 	printf("Finished... Stats: %d %d\n", min_full_cnt, max_full_cnt);
 	exit(0);
 }

@@ -16,7 +16,8 @@ typedef struct nextframe_offset_s
     int line;
 } nextframe_offset;
 
-extern nextframe_offset nextframe_offsets[8];
+#define NEXTFRAME_ENTRIES 16
+extern nextframe_offset nextframe_offsets[NEXTFRAME_ENTRIES];
 
 extern short nextframe_index;
 extern short nextframe_valid;

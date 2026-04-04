@@ -1,11 +1,17 @@
-# CD-i Bad Apple
+# CD-i Bad Apple!!
 
-This is a tech demo for the Philips CD-i which plays the famous monochrome music video "Bad Apple", without the usage of the digital video cartridge.
+This is a tech demo for the Philips CD-i, which plays the famous monochrome music video "Bad Apple!!",
+without the usage of the digital video cartridge.
+It is inspired by the technique used by the game "Burn:Cycle".
 
-The video mode RL7 is used for compression, to allow the full frame rate of 30 FPS at the maximum PAL resolution of 384x280.
-For audio, Level B is used, which allocates 1/4th of the CD datarate for playback of 4 bit ADPCM at 37.8 kHz in stereo.
-
-A custom RLE encoder is written in Rust.
+Features
+* RL3 video mode is used for compression
+  * Full frame rate of 30 FPS at the maximum PAL resolution of 768x280
+* Audio via APDCM at Level B
+  * 1/4th of the CD datarate for audio playback
+  * 4 bit samples at 37.8 kHz in stereo
+* 2 separate video streams for 50 and 60 Hz modes to always have the right pixel aspect ratio
+* A custom RLE encoder, written in Rust
 
 ## Prerequisites
 

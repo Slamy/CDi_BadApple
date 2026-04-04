@@ -15,7 +15,7 @@ type ColorMapperFn = fn(&u8) -> u8;
 // shadows in 03456 are luma 73
 fn map3shades(p: &u8) -> u8 {
     if *p > 100 {
-        1
+        7
     } else if *p > 60 {
         2
     } else {
@@ -23,8 +23,28 @@ fn map3shades(p: &u8) -> u8 {
     }
 }
 
+fn map7shades(p: &u8) -> u8 {
+    if *p > 236 {
+        7
+    } else if *p > 200 {
+        6
+    } else if *p > 163 {
+        5
+    } else if *p > 127 {
+        4
+    } else if *p > 91 {
+        3
+    } else if *p > 54 {
+        2
+    } else if *p > 18 {
+        1
+    } else {
+        0
+    }
+}
+
 fn map2shades(p: &u8) -> u8 {
-    if *p > 100 { 1 } else { 0 }
+    if *p > 100 { 7 } else { 0 }
 }
 
 fn line_to_rle(line: &[u8], colormapper: ColorMapperFn) -> Vec<Rle> {
@@ -148,20 +168,34 @@ impl Mode2Sector {
         }
     }
 
-    fn push_data(&mut self, seqnum: u16, offset: u16, data: &[u8], last: bool) {
+    fn push_data(
+        &mut self,
+        seqnum: u16,
+        offset: u16,
+        data: &[u8],
+        last_header_of_cd_sector: bool,
+        frame_complete: bool,
+    ) {
+        //println!("{seqnum} {offset} {last_header_of_cd_sector} {frame_complete}");
+        let seqnum = seqnum | if frame_complete { 0x8000 } else { 0 };
+
         assert!(data.len() & 1 == 0, "Data not word aligned");
         assert!(!self.has_end_mark, "Sector already closed");
 
         let afterremain =
             USER_BYTES_PER_MODE2_SECTOR - self.buffer.len() - Self::HEADER_SIZE - data.len();
 
-        let last = afterremain < 16 || last;
-        if last {
+        let last_header_of_cd_sector = afterremain < 16 || last_header_of_cd_sector;
+        if last_header_of_cd_sector {
             self.has_end_mark = true;
         }
         assert!(self.buffer.len() + Self::HEADER_SIZE + data.len() <= USER_BYTES_PER_MODE2_SECTOR);
 
-        let magic: u16 = if last { 0x4242 } else { 0x4243 };
+        let magic: u16 = if last_header_of_cd_sector {
+            0x4242
+        } else {
+            0x4243
+        };
         let length = data.len() as u16;
 
         self.buffer.extend_from_slice(&magic.to_be_bytes());
@@ -186,58 +220,66 @@ impl Mode2Sector {
     }
 }
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
+struct RleStream {
+    outfile: File,
+    mode2sec: Mode2Sector,
+    frame_sizes_in_buffer: VecDeque<usize>,
+    frametime: f32,
+    max_frames_in_buffer: usize,
+}
 
-    let folder = &args[1];
-    println!("Reading from {folder}");
+// Assume 75%, since Level B audio is interleaved with video data
+const SECTORS_PER_SECOND: f32 = 75_f32 * 3_f32 / 4_f32;
+const SECONDS_PER_SECTOR: f32 = 1_f32 / SECTORS_PER_SECOND;
 
-    // Assume 75%, since Level B audio is interleaved with video data
-    let sectors_per_second: f32 = 75_f32 * 3_f32 / 4_f32;
-    let seconds_per_sector = 1_f32 / sectors_per_second;
+const FRAMES_PER_SECOND: f32 = 29.97_f32;
+const SECONDS_PER_FRAME: f32 = 1_f32 / FRAMES_PER_SECOND;
 
-    let frames_per_second = 29.97_f32;
-    let seconds_per_frame: f32 = 1_f32 / frames_per_second;
+impl RleStream {
+    fn new(pal_mode: bool, outpath: &str) -> Self {
+        let outfile = File::create(outpath).unwrap();
+        let mode2sec = Mode2Sector::new();
+        let frame_sizes_in_buffer = VecDeque::new();
+        // Preload by half a second before playback
+        let frametime: f32 = 0_f32;
 
-    let pal_mode = folder.contains("280");
-    assert!(pal_mode || folder.contains("240"));
+        // PCL fullness during playback on CD-i
+        // 70 frames at 50 Hz -> 20 -> 133
+        // 50 frames at 60 Hz -> 21 -> 100
+        // 55 frames at 60 Hz -> 24 -> 104
+        // 75 frames at 50 Hz -> 21 -> 134
+        let max_frames_in_buffer = if pal_mode { 75 } else { 55 };
 
-    // PCL fullness during playback on CD-i
-    // 70 frames at 50 Hz -> 20 -> 133
-    // 50 frames at 60 Hz -> 21 -> 100
-    // 55 frames at 60 Hz -> 24 -> 104
-    // 75 frames at 50 Hz -> 21 -> 134
-    let max_frames_in_buffer = if pal_mode { 75 } else { 55 };
+        Self {
+            outfile,
+            mode2sec,
+            frame_sizes_in_buffer,
+            frametime,
+            max_frames_in_buffer,
+        }
+    }
 
-    // Preload by half a second before playback
-    let mut frametime: f32 = 0_f32;
-
-    let outpath = if pal_mode { "MOV280.DAT" } else { "MOV240.DAT" };
-
-    let mut outfile = File::create(outpath).unwrap();
-    let mut mode2sec = Mode2Sector::new();
-
-    let mut frame_sizes_in_buffer = VecDeque::new();
-
-    for i in 1..6955 {
-        let path = format!("{folder}/{i:05}.png");
+    // Never more than 75 sectors. We will destroy the previous PCL buffers that are still in use!
+    fn push_empty_sectors(&mut self, num: usize) {
+        for _ in 0..num {
+            self.mode2sec.push_data(0, 0, &[], true, false);
+            self.mode2sec.flush(&mut self.outfile);
+        }
+    }
+    fn encode_frame(&mut self, path: &str, seqnum: u16, colormapper: ColorMapperFn) {
         let img = ImageReader::open(path).unwrap().decode().unwrap();
 
-        let colormapper = match (pal_mode, i) {
-            (true, 1500..1910) => map2shades,
-            _ => map3shades,
-        };
         let (mut rle, framesize) = parse_picture(img, colormapper);
 
         let mut offset = 0;
         let mut lines = 0;
         while !rle.is_empty() {
-            let remain = mode2sec.remaining_storage();
+            let remain = self.mode2sec.remaining_storage();
 
             // Flush the sector when no more data can be added to it
             if remain == 0 {
-                mode2sec.flush(&mut outfile);
-                frametime += seconds_per_sector;
+                self.mode2sec.flush(&mut self.outfile);
+                self.frametime += SECONDS_PER_SECTOR;
             } else {
                 let mut to_write: Vec<u8> = Vec::new();
 
@@ -259,49 +301,104 @@ fn main() {
 
                 if !rle.is_empty() {
                     // The next line will not fit, close it and flush.
-                    mode2sec.push_data(i, offset, &to_write, true);
+                    self.mode2sec
+                        .push_data(seqnum, offset, &to_write, true, false);
                     offset = lines;
 
-                    mode2sec.flush(&mut outfile);
-                    frametime += seconds_per_sector;
+                    self.mode2sec.flush(&mut self.outfile);
+                    self.frametime += SECONDS_PER_SECTOR;
                 } else {
-                    mode2sec.push_data(i, offset, &to_write, false);
+                    assert!(to_write.len() > 0);
+
+                    self.mode2sec
+                        .push_data(seqnum, offset, &to_write, false, true);
                     offset = lines;
                 }
             }
         }
 
-        frame_sizes_in_buffer.push_back(framesize);
+        self.frame_sizes_in_buffer.push_back(framesize);
 
-        let remain = mode2sec.remaining_storage();
+        let remain = self.mode2sec.remaining_storage();
         if remain == 0 {
-            mode2sec.flush(&mut outfile);
+            self.mode2sec.flush(&mut self.outfile);
             println!("Fill2!");
 
-            frametime += seconds_per_sector;
+            self.frametime += SECONDS_PER_SECTOR;
         }
 
         //while cdi_buffer_level > max_cdi_buffer_level {
-        while frame_sizes_in_buffer.len() > max_frames_in_buffer {
+        while self.frame_sizes_in_buffer.len() > self.max_frames_in_buffer {
             // Add an empty sector
-            mode2sec.push_data(i, 0, &[], true);
-            mode2sec.flush(&mut outfile);
-            frametime += seconds_per_sector;
+            self.mode2sec.push_data(seqnum, 0, &[], true, false);
+            self.mode2sec.flush(&mut self.outfile);
+            self.frametime += SECONDS_PER_SECTOR;
             println!("Fill1!");
 
             // Consume frames for display
-            while frametime > seconds_per_frame {
-                frametime -= seconds_per_frame;
-                frame_sizes_in_buffer.pop_front().unwrap();
+            while self.frametime > SECONDS_PER_FRAME {
+                self.frametime -= SECONDS_PER_FRAME;
+                self.frame_sizes_in_buffer.pop_front().unwrap();
             }
         }
 
         // Consume frames for display
-        while frametime > seconds_per_frame {
-            frametime -= seconds_per_frame;
-            frame_sizes_in_buffer.pop_front().unwrap();
+        while self.frametime > SECONDS_PER_FRAME {
+            self.frametime -= SECONDS_PER_FRAME;
+            self.frame_sizes_in_buffer.pop_front().unwrap();
         }
 
-        println!("VBV {} {}", i, frame_sizes_in_buffer.len());
+        println!("VBV {} {}", seqnum, self.frame_sizes_in_buffer.len());
     }
+}
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    let folder = &args[1];
+    println!("Reading from {folder}");
+
+    let pal_mode = folder.contains("280");
+    assert!(pal_mode || folder.contains("240"));
+
+    let outpath = if pal_mode { "MOV280.DAT" } else { "MOV240.DAT" };
+
+    let mut rlestream = RleStream::new(pal_mode, outpath);
+
+    /* Encode all frames until the credits, which we handle special */
+    for seqnum in 1..6530 {
+        let path = format!("{folder}/{seqnum:05}.png");
+
+        let colormapper = match (pal_mode, seqnum) {
+            (true, 1500..1910) => map2shades,
+            _ => map3shades,
+        };
+
+        rlestream.encode_frame(&path, seqnum, colormapper);
+    }
+
+    let colormapper = map7shades;
+    let vertical_res_str = if pal_mode { "280" } else { "240" };
+
+    let mut seqnum = 6530;
+
+    let path = format!("manualpic/credits0_{vertical_res_str}.png");
+    println!("Open {path}");
+    rlestream.encode_frame(&path, seqnum, colormapper);
+    seqnum = seqnum + 1;
+    rlestream.push_empty_sectors(75);
+    rlestream.encode_frame(&path, seqnum, colormapper);
+    seqnum = seqnum + 1;
+    rlestream.push_empty_sectors(75);
+    rlestream.encode_frame(&path, seqnum, colormapper);
+    seqnum = seqnum + 1;
+    rlestream.push_empty_sectors(75);
+    rlestream.encode_frame(&path, seqnum, colormapper);
+    seqnum = seqnum + 1;
+    rlestream.push_empty_sectors(75);
+
+    let path = format!("manualpic/credits1_{vertical_res_str}.png");
+    println!("Open {path}");
+    rlestream.encode_frame(&path, seqnum, colormapper);
+    rlestream.push_empty_sectors(10);
 }
