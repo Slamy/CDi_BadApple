@@ -11,17 +11,9 @@ The [remastered upload of Masayoshi Minoshima / ALSTROEMERIA RECORDS](https://ww
 ## Building the Video stream
 
 You need to have a [Rust compiler](https://rust-lang.org/) for this.
+Please use the script to handle everything
 
-    mkdir -p pics280 pics240
-    ffmpeg -i *.webm -s 768x280 pics280/%05d.png
-    cargo run --release pics280
-    mv MOV280.DAT ../build/MOV280.DAT
-
-For NTSC resolution
-
-    ffmpeg -i *.webm -s 768x240 pics240/%05d.png
-    cargo run --release pics240
-    mv MOV240.DAT ../build/MOV240.DAT
+    ./create_movie.sh
 
 For debugging purposes, the frame count can be added to the video
 
