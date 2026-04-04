@@ -27,6 +27,7 @@ This demo was tested on these platforms
 * [CD-i Emulator (cdiemu)](https://www.cdiemu.org/)
 * MAME (cdimono1)
 * MiSTer FPGA CD-i core
+* Philips CD-i 210/05 with 50/60 Hz switch
 
 ## TODO
 

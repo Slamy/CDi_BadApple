@@ -25,7 +25,7 @@ For conversion, `ACU Shell` from the [CD-i SDK](../cdi-sdk/TOOLS/Master/) is use
 
 Since wave file don't work too well, we need to convert the audio to AIFF.
 
-    ffmpeg -i *.webm -vn -ar 37800 audio.aiff
+    ffmpeg -ss 1 -i *.webm -vn -ar 37800 audio.aiff
 
 Now, we can use wine on Linux or directly start it on Windows
 
