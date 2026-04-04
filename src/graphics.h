@@ -10,8 +10,7 @@ void CommitFrame(u_char *fb);
 void VBlankOccured();
 u_char *BorrowFrame();
 
-typedef struct nextframe_offset_s
-{
+typedef struct nextframe_offset_s {
     char *adr;
     int line;
 } nextframe_offset;

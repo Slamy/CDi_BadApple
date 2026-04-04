@@ -1,6 +1,8 @@
 #ifndef __VIDEO_H__
 #define __VIDEO_H__
 
+#include <types.h>
+
 #define FCT_SIZE 160
 #define LCT_SIZE 280 * 2 + 2
 
