@@ -197,7 +197,6 @@ void initSystem()
 
 	initAudio();
 	initVideo();
-	initGraphics();
 	initProgram();
 
 	/* Assume we are not running from serial stub first */

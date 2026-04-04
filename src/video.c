@@ -176,6 +176,9 @@ void initVideo()
 
 	setupPlaneA();
 	setupPlaneB();
+
+	createVideoBuffers();
+
 	dc_exec(videoPath, fctA, fctB);
 }
 
