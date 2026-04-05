@@ -8,6 +8,7 @@
 #include <ucm.h>
 
 #include "graphics.h"
+#include "input.h"
 #include "video.h"
 #include <signal.h>
 
@@ -26,6 +27,8 @@ int audioPath;
 #define SECTOR_SIZE 2324
 
 int exit_app = 0;
+int playback_finished = 0;
+
 static PCB videoPcb;
 static PCL mvPcl[VIDEO_PCL_COUNT];
 static PCL *mvCil[32];
@@ -121,14 +124,17 @@ int kVideoFrameRate = 2997; /* *100 */
 int mainSignal(sigCode)
 int sigCode;
 {
-    if (sigCode == SIGINT) {
+    switch (sigCode) {
+    case SIGINT:
         printf("SIGINT!\n");
         exit_app = 1;
-    } else if (sigCode == VIDEO_SIG_PCB) {
+        break;
+    case VIDEO_SIG_PCB:
         /* Occurs when playback has finished */
-        printf("PCB %x %x\n", videoPcb.PCB_Stat, videoPcb.PCB_Sig);
-        exit_app = 1;
-    } else if (sigCode == MV_SIG_PCL) {
+        printf("PCB %x %x\n", (unsigned short)videoPcb.PCB_Stat, videoPcb.PCB_Sig);
+        playback_finished = 1;
+        break;
+    case MV_SIG_PCL:
         if (mpegFile != -1) {
             long error;
             int pos = gs_pos(mpegFile) / 2048;
@@ -139,10 +145,15 @@ int sigCode;
 
             phase_mod = error;
         }
-    } else if (sigCode == SIG_BLANK) {
+        break;
+    case SIG_BLANK:
         VBlankOccured();
         dc_ssig(videoPath, SIG_BLANK, 0);
-    } else {
+        break;
+    case I_SIGNAL1:
+        handleInputSignal(sigCode);
+        /* printf("joy %x\n", input1State);*/
+        break;
     }
 }
 
@@ -170,6 +181,7 @@ void initSystem() {
 
     initAudio();
     initVideo();
+    initInput();
     initProgram();
 
     /* Assume we are not running from serial stub first */
@@ -185,7 +197,10 @@ void initSystem() {
     printf("Started Play %s\n", path);
 }
 
-void closeSystem() { closeVideo(); }
+void closeSystem() {
+    closeVideo();
+    closeInput();
+}
 
 #define NEXTFRAME_ENTRIES 16
 nextframe_offset nextframe_offsets[NEXTFRAME_ENTRIES];
@@ -286,29 +301,32 @@ int processSector(unsigned char *buf_current) {
 
 void runProgram() {
     dc_ssig(videoPath, SIG_BLANK, 0);
+    setInputSignals();
 
-    while (!exit_app) {
+    while (!playback_finished && !exit_app) {
 
         if ((mvPcl[current_pcl].PCL_Ctrl & 1) && !nextframe_valid) {
             unsigned char *buf_current = &mpegDataBuffer[current_pcl * SECTOR_SIZE];
 
             int sector_used_up = processSector(buf_current);
-            /* mvPcl[current_pcl].PCL_Buf */
-            /* printf("MV %x %x %x\n", videoPcb.PCB_Stat, videoPcb.PCB_Sig,
-             * buf_current[0]); */
-            /* printf("C %x\n", *(u_short *)buf_current); */
 
             if (sector_used_up) {
                 CountUsedPCLs();
 
-                /* printf("C\n"); */
-                /* Free PCL */
                 initMpegPcl(&(mvPcl[current_pcl]), MV_SIG_PCL,
                             &(mvPcl[(current_pcl + 1) % VIDEO_PCL_COUNT]), buf_current,
                             1);
 
                 current_pcl = (current_pcl + 1) % VIDEO_PCL_COUNT;
             }
+        }
+    }
+
+    printf("Finished playback. min:%d max:%d\n", min_full_cnt, max_full_cnt);
+
+    while (!exit_app) {
+        if (input1State & I_BUTTON_ANY) {
+            exit_app = 1;
         }
     }
 }
@@ -330,11 +348,7 @@ char *argv[];
     initSystem();
     runProgram();
 
-    printf("Sleep...\n");
-    sleep(8);
-
     closeSystem();
-
-    printf("Finished... Stats: %d %d\n", min_full_cnt, max_full_cnt);
+    printf("Closing\n");
     exit(0);
 }
