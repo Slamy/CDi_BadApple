@@ -12,6 +12,8 @@
 #include "video.h"
 #include <signal.h>
 
+/* #define STATISTICS */
+
 extern int errno;
 int audioPath;
 
@@ -37,6 +39,8 @@ static int mpegFile = -1;
 
 #define VIDEO_SIG_PCB 0x1C00
 #define MV_SIG_PCL 0x1B00
+
+void checkPcls();
 
 int current_pcl = 0;
 
@@ -74,14 +78,16 @@ int length;                        /* buffer size in number of sectors */
 }
 
 short current_seqnum = 1;
-unsigned short min_full_cnt = 0xffff;
-unsigned short max_full_cnt = 0;
 short phase_mod = 0;
 
+#ifdef STATISTICS
+unsigned short min_full_cnt = 0xffff;
+unsigned short max_full_cnt = 0;
+
 #define EXPECTED_NUMBER_OF_FRAMES 6530
-short CountUsedPCLs() {
-    unsigned short full_cnt = 0;
-    short i;
+int CountUsedPCLs() {
+    int full_cnt = 0;
+    int i;
     for (i = 0; i < VIDEO_PCL_COUNT; i++) {
         if (mvPcl[i].PCL_Ctrl & 0x01) {
             full_cnt++;
@@ -99,6 +105,7 @@ short CountUsedPCLs() {
 
     return full_cnt;
 }
+#endif
 
 void initPcls() {
     char *address = mpegDataBuffer;
@@ -116,10 +123,10 @@ void initPcls() {
  * is perfect for this.
  * = number of frames *100
  */
-int kAudioVideoOffset = 120;
+#define kAudioVideoOffset 120
 
-int kSectorRate = 75;
-int kVideoFrameRate = 2997; /* *100 */
+#define kSectorRate 75
+#define kVideoFrameRate 2997 /* *100 */
 
 int mainSignal(sigCode)
 int sigCode;
@@ -137,7 +144,7 @@ int sigCode;
     case MV_SIG_PCL:
         if (mpegFile != -1) {
             long error;
-            int pos = gs_pos(mpegFile) / 2048;
+            unsigned int pos = gs_pos(mpegFile) / 2048;
             /* pos counts 75 Hz ticks */
             pos = pos * kVideoFrameRate / kSectorRate + kAudioVideoOffset;
             /* now we have the number of frames *100 */
@@ -299,44 +306,61 @@ int processSector(unsigned char *buf_current) {
     }
 }
 
+void checkPcls() {
+    unsigned long time_diff;
+    unsigned char *buf_current;
+    int sector_used_up;
+
+    while ((mvPcl[current_pcl].PCL_Ctrl & 1) && !nextframe_valid) {
+        /* 200 ticks */
+        buf_current = &mpegDataBuffer[current_pcl * SECTOR_SIZE];
+        sector_used_up = processSector(buf_current);
+
+        if (sector_used_up) {
+#ifdef STATISTICS
+            CountUsedPCLs();
+#endif
+
+            initMpegPcl(&(mvPcl[current_pcl]), MV_SIG_PCL,
+                        &(mvPcl[(current_pcl + 1) % VIDEO_PCL_COUNT]), buf_current,
+                        1);
+
+            current_pcl = (current_pcl + 1) % VIDEO_PCL_COUNT;
+        }
+    }
+}
+
 void runProgram() {
+    int cnt;
+
     dc_ssig(videoPath, SIG_BLANK, 0);
     setInputSignals();
 
     while (!playback_finished && !exit_app) {
+        checkPcls();
+        tsleep(1);
 
-        if ((mvPcl[current_pcl].PCL_Ctrl & 1) && !nextframe_valid) {
-            unsigned char *buf_current = &mpegDataBuffer[current_pcl * SECTOR_SIZE];
-
-            int sector_used_up = processSector(buf_current);
-
-            if (sector_used_up) {
-                CountUsedPCLs();
-
-                initMpegPcl(&(mvPcl[current_pcl]), MV_SIG_PCL,
-                            &(mvPcl[(current_pcl + 1) % VIDEO_PCL_COUNT]), buf_current,
-                            1);
-
-                current_pcl = (current_pcl + 1) % VIDEO_PCL_COUNT;
-            }
+#ifdef STATISTICS
+        cnt = (cnt + 1) & 0xff;
+        if (cnt == 2) {
+            printf("%d\n", time_diff_max);
         }
+#endif
     }
 
+#ifdef STATISTICS
     printf("Finished playback. min:%d max:%d\n", min_full_cnt, max_full_cnt);
+#else
+    printf("Finished playback\n");
+#endif
 
     while (!exit_app) {
         if (input1State & I_BUTTON_ANY) {
             exit_app = 1;
         }
+        tsleep(1);
     }
 }
-
-extern int os9forkc();
-extern char **environ;
-char *argblk[] = {
-    "vcd",
-    0,
-};
 
 int main(argc, argv)
 int argc;

@@ -43,16 +43,16 @@ link_cd: $(FILES)
 	fixmod -uo=0.0 $(BUILD)/$(NAME)
 
 $(OUTPUT)/graphics.r : $(SRC)/graphics.c $(SRC)/*.h
-	$(CC) $(CCFLAGS) -O=2 $(SRC)/graphics.c
+	$(CC) $(CCFLAGS) -O=7 $(SRC)/graphics.c
 
 $(OUTPUT)/input.r : $(SRC)/input.c $(SRC)/*.h
-	$(CC) $(CCFLAGS) -O=2 $(SRC)/input.c
+	$(CC) $(CCFLAGS) -O=7 $(SRC)/input.c
 
 $(OUTPUT)/main.r : $(SRC)/main.c $(SRC)/*.h
-	$(CC) $(CCFLAGS) -O=2 $(SRC)/main.c
+	$(CC) $(CCFLAGS) -O=7 $(SRC)/main.c
 
 $(OUTPUT)/video.r : $(SRC)/video.c $(SRC)/*.h
-	$(CC) $(CCFLAGS) -O=2 $(SRC)/video.c
+	$(CC) $(CCFLAGS) -O=7 $(SRC)/video.c
 
 
 clean:
