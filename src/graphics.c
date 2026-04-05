@@ -5,7 +5,6 @@
 #include <sysio.h>
 #include <ucm.h>
 
-
 u_int frameDone = 0, frameTick = 0;
 
 int curIcfA = ICF_MAX;
@@ -75,7 +74,7 @@ void VBlankOccured() {
     }
 
     if (nextframe_valid && phase_accu >= 0x10000) {
-        short i;
+        int i;
         phase_accu -= 0x10000;
         already_told_underflow = 0;
 
