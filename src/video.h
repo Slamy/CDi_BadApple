@@ -16,8 +16,6 @@
 extern int videoPath;
 extern int fctA, fctB, lctB;
 extern u_int fctBuffer[FCT_SIZE];
-extern u_int pixelStart;
-extern u_int lineSkip;
 extern int lctA[2];
 extern u_int *lct_a_hwbuf[2];
 extern int videoMode;

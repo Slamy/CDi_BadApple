@@ -12,8 +12,6 @@ int videoMode;
 int lctA[2];
 
 u_int fctBuffer[FCT_SIZE];
-u_int lineSkip;
-u_int pixelStart;
 
 u_int *lct_a_hwbuf[2];
 
@@ -157,16 +155,10 @@ void initVideo() {
     /* Setup Video */
     if (videoMode == 0) { /* PAL - 384x280 */
         dc_setcmp(videoPath, 0);
-        lineSkip = 0;
-        pixelStart = 0;
     } else if (videoMode == 1) { /* NTSC TV - 384x240 */
         dc_setcmp(videoPath, 0);
-        lineSkip = 20;
-        pixelStart = lineSkip * SCREEN_WIDTH;
     } else { /* NTSC Monitor - 360x240 */
         dc_setcmp(videoPath, 1);
-        lineSkip = 20;
-        pixelStart = 20 * SCREEN_WIDTH;
     }
 
     dc_intl(videoPath, 0); /* No interlace */

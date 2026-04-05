@@ -122,10 +122,10 @@ void createVideoBuffers() {
     /* 0x80 00 is RLE Index 0 for the rest of the line */
     fillVideoBuffer(fb_black, 0x80008000);
 
-    dc_wrli(videoPath, lctA[0], 0, 0, cp_dadr((int)fb_black + pixelStart));
+    dc_wrli(videoPath, lctA[0], 0, 0, cp_dadr((int)fb_black));
     dc_wrli(videoPath, lctA[0], 0, 6, cp_icf(PA, ICF_MAX));
 
-    dc_wrli(videoPath, lctA[1], 0, 0, cp_dadr((int)fb_black + pixelStart));
+    dc_wrli(videoPath, lctA[1], 0, 0, cp_dadr((int)fb_black));
     dc_wrli(videoPath, lctA[1], 0, 6, cp_icf(PA, ICF_MAX));
 
     /* Place SIG at start of frame */
