@@ -80,7 +80,9 @@ void VBlankOccured() {
 
         if (nextframe_offsets[0].line != 0) {
             printf("Program flow error 3\n");
-            exit(1);
+            nextframe_index = 0;
+            nextframe_valid = 0;
+            return;
         }
 
         /* Uses ~2% of CPU load. First line cannot be set via lct_a_hwbuf[]. Must be set via dc_wrli() */

@@ -232,7 +232,8 @@ int processSector(unsigned char *buf_current) {
     for (;;) {
         if ((unsigned long)buf_current & 1) {
             printf("Alignment error\n");
-            exit(1);
+            /* Discard this sector */
+            return 1;
         }
 
         header = buf_current;
@@ -301,7 +302,8 @@ int processSector(unsigned char *buf_current) {
             }
         } else {
             printf("No magic\n");
-            exit(1);
+            /* Discard this sector */
+            return 1;
         }
     }
 }
