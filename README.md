@@ -64,7 +64,6 @@ This demo was tested on these platforms
 
 ## TODO
 
-* Test with dirty CDs on real hardware
 * Improve Video buffer verifier of the encoder. Buffer fifo level assumption doesn't match the actual playback.
 * Interlacing for more vertical resolution? Data rate might be a problem.
 
